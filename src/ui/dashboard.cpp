@@ -237,7 +237,7 @@ void Dashboard::_addHandCard(CardItem *card_item) {
     m_handCards << card_item;
 
     connect(card_item, SIGNAL(clicked()), this, SLOT(onCardItemClicked()));
-    connect(card_item, SIGNAL(double_clicked()), this, SLOT(onCardItemDoubleClicked()));
+    //connect(card_item, SIGNAL(double_clicked()), this, SLOT(onCardItemDoubleClicked()));
     connect(card_item, SIGNAL(thrown()), this, SLOT(onCardItemThrown()));
     connect(card_item, SIGNAL(enter_hover()), this, SLOT(onCardItemHover()));
     connect(card_item, SIGNAL(leave_hover()), this, SLOT(onCardItemLeaveHover()));      

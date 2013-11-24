@@ -322,6 +322,7 @@ public:
     static const char *S_SKIN_KEY_BUTTON_DASHBOARD_TRUST;
     static const char *S_SKIN_KEY_PLATTER;
     static const char *S_SKIN_KEY_BUTTON_SKILL;
+	static const char *S_SKIN_KEY_READY_ICON;
 
     // player container
     static const char *S_SKIN_KEY_MAINFRAME;
