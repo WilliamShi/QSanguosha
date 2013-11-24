@@ -948,7 +948,34 @@ sgs.ai_skill_use_func.DuwuCard = function(card, use, self)
 	end
 
 	for _, enemy in ipairs(enemies) do
-		if enemy:getHp() > #card_ids then continue end
+		if enemy:getHp() > #card_ids then 
+		else
+
+			if enemy:getHp() <= 0 then
+				use.card = sgs.Card_Parse("@DuwuCard=.")
+				if use.to then use.to:append(enemy) end
+				return
+			elseif enemy:getHp() > 1 then
+				local hp_ids = {}
+				if self.player:distanceTo(enemy, getRangefix(enemy:getHp())) <= self.player:getAttackRange() then
+					for _, id in ipairs(card_ids) do
+						table.insert(hp_ids, id)
+						if #hp_ids == enemy:getHp() then break end
+					end
+					use.card = sgs.Card_Parse("@DuwuCard=" .. table.concat(hp_ids, "+"))
+					if use.to then use.to:append(enemy) end
+					return
+				end
+			else
+				if not self:isWeak() or self:getSaveNum(true) >= 1 then
+					if self.player:distanceTo(enemy, getRangefix(1)) <= self.player:getAttackRange() then
+						use.card = sgs.Card_Parse("@DuwuCard=" .. card_ids[1])
+						if use.to then use.to:append(enemy) end
+						return
+					end
+				end
+			end
+		end
 		if enemy:getHp() <= 0 then
 			use.card = sgs.Card_Parse("@DuwuCard=.")
 			if use.to then use.to:append(enemy) end
@@ -1201,5 +1228,8 @@ sgs.ai_skill_invoke.cv_huanggai = function(self, data)
 end
 
 sgs.ai_skill_invoke.cv_guojia = sgs.ai_skill_invoke.cv_huanggai
+<<<<<<< HEAD
 sgs.ai_skill_invoke.cv_zhugeke = sgs.ai_skill_invoke.cv_huanggai
 sgs.ai_skill_invoke.cv_yuejin = sgs.ai_skill_invoke.cv_huanggai
+=======
+>>>>>>> 86f2ae049e73f3a807b26798274c2f1ef5df2d0c
