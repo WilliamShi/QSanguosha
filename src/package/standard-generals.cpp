@@ -114,7 +114,8 @@ public:
         CardStar card = judge->card;
 
         QVariant data_card = QVariant::fromValue(card);
-        if (guojia->askForSkillInvoke(objectName(), data_card)) {
+        if (room->getCardPlace(card->getEffectiveId()) == Player::PlaceJudge
+            && guojia->askForSkillInvoke(objectName(), data_card)) {
             room->broadcastSkillInvoke(objectName());
             guojia->obtainCard(judge->card);
             return false;
@@ -339,7 +340,7 @@ public:
             if (judge->reason == objectName()) {
                 bool isHegVer = zhenji->getGeneralName() != "zhenji"
                                 && (zhenji->getGeneralName() == "heg_zhenji" || zhenji->getGeneral2Name() == "heg_zhenji");
-                if (judge->card->isBlack()) {
+                if (judge->card->isBlack() && room->getCardPlace(judge->card->getEffectiveId()) == Player::PlaceJudge) {
                     if (isHegVer && zhenji->hasSkills("guicai|guidao|huanshi")) {
                         CardMoveReason reason(CardMoveReason::S_REASON_JUDGEDONE, zhenji->objectName(), QString(), judge->reason);
                         room->moveCardTo(judge->card, zhenji, NULL, Player::PlaceTable, reason, true);
@@ -676,7 +677,7 @@ public:
             log.card_str = IntList2StringList(guanxing).join("+");
             room->doNotify(zhuge, QSanProtocol::S_COMMAND_LOG_SKILL, log.toJsonValue());
 
-            room->askForGuanxing(zhuge, guanxing, false);
+            room->askForGuanxing(zhuge, guanxing);
         }
 
         return false;
@@ -1166,13 +1167,23 @@ public:
             room->notifySkillInvoked(player, objectName());
 
             room->broadcastSkillInvoke(objectName());
-            if (use.card->isKindOf("Duel"))
-                room->setPlayerMark(player, "WushuangTarget", 1);
+            if (use.card->isKindOf("Duel")) {
+                if (player == use.from) {
+                    QStringList wushuang_tag;
+                    foreach (ServerPlayer *to, use.to)
+                        wushuang_tag << to->objectName();
+                    player->tag["Wushuang_" + use.card->toString()] = wushuang_tag;
+                } else {
+                    QStringList wushuang_tag;
+                    wushuang_tag << use.from->objectName();
+                    player->tag["Wushuang_" + use.card->toString()] = wushuang_tag;
+                }
+            }
         } else if (triggerEvent == CardFinished) {
             CardUseStruct use = data.value<CardUseStruct>();
             if (use.card->isKindOf("Duel")) {
-                foreach (ServerPlayer *lvbu, room->getAllPlayers())
-                    if (lvbu->getMark("WushuangTarget") > 0) room->setPlayerMark(lvbu, "WushuangTarget", 0);
+                foreach (ServerPlayer *p, room->getAllPlayers())
+                    p->tag.remove("Wushuang_" + use.card->toString());
             }
         }
 

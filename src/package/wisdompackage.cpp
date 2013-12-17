@@ -105,8 +105,10 @@ public:
             PindianStar pindian = data.value<PindianStar>();
             if(pindian->reason == objectName())
                 if (pindian->success){
-                    xuyou->obtainCard(pindian->to_card);
-                    xuyou->obtainCard(pindian->from_card);
+                    if (room->getCardPlace(pindian->to_card->getEffectiveId()) == Player::PlaceTable)
+                        xuyou->obtainCard(pindian->to_card);
+                    if (room->getCardPlace(pindian->from_card->getEffectiveId()) == Player::PlaceTable)
+                        xuyou->obtainCard(pindian->from_card);
                 }
                 else
                     xuyou->getRoom()->broadcastSkillInvoke(objectName(), 2);
@@ -328,8 +330,6 @@ void BawangCard::onEffect(const CardEffectStruct &effect) const{
     use.from = effect.from;
     use.to << effect.to;
 
-    room->setEmotion(effect.to, "bad");
-    room->setEmotion(effect.from, "good");
     room->useCard(use, false);
 }
 
@@ -361,7 +361,6 @@ public:
     virtual bool trigger(TriggerEvent, Room* room, ServerPlayer *sunce, QVariant &data) const{
         SlashEffectStruct effect = data.value<SlashEffectStruct>();
         if(!effect.to->isNude() && !sunce->isKongcheng() && !effect.to->isKongcheng()){
-            Room *room = sunce->getRoom();
             if(room->askForSkillInvoke(sunce, objectName(), data)){
                 room->broadcastSkillInvoke(objectName(), 1);
                 room->notifySkillInvoked(sunce, objectName());
@@ -379,7 +378,9 @@ public:
     }
 
     virtual int getEffectIndex(const ServerPlayer *player, const Card *card) const{
-        return 2;
+        if (!card->isKindOf("Slash"))
+            return 2;
+        return 0;
     }
 };
 
@@ -602,7 +603,7 @@ public:
         if (targets.isEmpty())
             return false;
 
-        ServerPlayer *target = room->askForPlayerChosen(player, targets, objectName(), "@jincui", true, true); // @todo: AI
+        ServerPlayer *target = room->askForPlayerChosen(player, targets, objectName(), "@jincui", true, true);
         if (target == NULL)
             return false;
         //room->broadcastSkillInvoke(objectName());
@@ -717,7 +718,7 @@ public:
         foreach(ServerPlayer *tianfeng, tians){
             if(tianfeng->getCardCount(true)>=2
                //&& room->askForSkillInvoke(tianfeng, objectName(), QVariant::fromValue(player))
-                && room->askForDiscard(tianfeng, objectName(), 2, 2, true, true, "@shipo")){ // @todo: AI
+                && room->askForDiscard(tianfeng, objectName(), 2, 2, true, true, "@shipo")){
                     room->broadcastSkillInvoke(objectName());
                     room->notifySkillInvoked(tianfeng, objectName());
                     DummyCard *dummy = new DummyCard;

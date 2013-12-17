@@ -15,6 +15,7 @@ sgs.ai_skill_use_func.NosJujianCard = function(card, use, self)
 	local hasPeach = (self:getCardsNum("Peach") > 0)
 	local to
 	local AssistTarget = self:AssistTarget()
+	if AssistTarget and self:willSkipPlayPhase(AssistTarget) then AssistTarget = nil end
 
 	local trick_num, basic_num, equip_num = 0, 0, 0
 	if not hasPeach and self.player:isWounded() and self.player:getCards("he"):length() >=3 then
@@ -141,12 +142,27 @@ sgs.ai_skill_cardask["@enyuanheart"] = function(self, data)
 	return "."
 end
 
-function sgs.ai_slash_prohibit.nosenyuan(self, to, card, from)
+function sgs.ai_slash_prohibit.nosenyuan(self, from, to, card)
 	if from:hasSkill("jueqing") then return false end
 	if from:hasSkill("nosqianxi") and from:distanceTo(to) == 1 then return false end
-	if from:hasFlag("nosjiefanUsed") then return false end
+	if from:hasFlag("NosJiefanUsed") then return false end
 	if self:needToLoseHp(from) and not self:hasSkills(sgs.masochism_skill, from) then return false end
 	if from:getHp() > 3 then return false end
+	
+	local role = from:objectName() == self.player:objectName() and from:getRole() or sgs.ai_role[from:objectName()]
+	if (role == "loyalist" or role == "lord") and sgs.current_mode_players.rebel + sgs.current_mode_players.renegade == 1
+		and to:getHp() == 1 and getCardsNum("Peach", to, self.player) < 1 and getCardsNum("Analeptic", to, self.player) < 1
+		and (from:getHp() > 1 or getCardsNum("Peach", from, self.player) >= 1 and getCardsNum("Analeptic", from, self.player) >= 1) then
+		return false
+	end
+	if role == "rebel" and isLord(to) and self:getAllPeachNum(player) < 1 and to:getHp() == 1
+		and (from:getHp() > 1 or getCardsNum("Peach", from, self.player) >= 1 and getCardsNum("Analeptic", from, self.player) >= 1) then
+		return false
+	end
+	if role == "renegade" and from:aliveCount() == 2 and to:getHp() == 1 and getCardsNum("Peach", to, self.player) < 1 and getCardsNum("Analeptic", to, self.player) < 1
+		and (from:getHp() > 1 or getCardsNum("Peach", from, self.player) >= 1 and getCardsNum("Analeptic", from, self.player) >= 1) then
+		return false
+	end
 	
 	local n = 0
 	local cards = from:getHandcards()
@@ -162,8 +178,8 @@ function sgs.ai_slash_prohibit.nosenyuan(self, to, card, from)
 	return self:isWeak(from)
 end
 
-sgs.ai_need_damaged.nosenyuan = function (self, attacker, player)	
-	if player:hasSkill("nosenyuan") and self:isEnemy(attacker, player) and self:isWeak(attacker)
+sgs.ai_need_damaged.nosenyuan = function (self, attacker, player)
+	if player:hasSkill("nosenyuan") and attacker and self:isEnemy(attacker, player) and self:isWeak(attacker)
 		and not (self:needToLoseHp(attacker) and not self:hasSkills(sgs.masochism_skill, attacker)) then
 			return true
 	end
@@ -298,15 +314,19 @@ sgs.ai_skill_playerchosen.nosxuanhuo = function(self, targets)
 	end
 end
 
-sgs.nosenyuan_suit_value = {
+sgs.nosxuanhuo_suit_value = {
 	heart = 3.9
 }
 
-sgs.ai_chaofeng.nosfazheng = -3
+sgs.ai_chaofeng.nos_fazheng = -3
+
+sgs.ai_cardneed.nosxuanhuo = function(to, card)
+	return card:getSuit() == sgs.Card_Heart
+end
 
 sgs.ai_skill_choice.nosxuanfeng = function(self, choices)
 	self:sort(self.enemies, "defenseSlash")
-	local slash = sgs.Sanguosha:cloneCard("slash", sgs.Card_NoSuit, 0)
+	local slash = sgs.Sanguosha:cloneCard("slash")
 	for _, enemy in ipairs(self.enemies) do
 		if self.player:distanceTo(enemy)<=1 then
 			return "damage"
@@ -378,7 +398,7 @@ function sgs.ai_cardsview_valuable.nosjiefan(self, class_name, player)
 		local current = player:getRoom():getCurrent()
 		if not current or current:isDead() or current:getPhase() == sgs.Player_NotActive
 			or current:objectName() == player:objectName() or (current:hasSkill("wansha") and player:objectName() ~= dying:objectName())
-			or (self:isEnemy(current) and self:needLeiji(current, player)) then return nil end
+			or (self:isEnemy(current) and self:findLeijiTarget(current, 50, player)) then return nil end
 		return "@NosJiefanCard=."
 	end
 end
@@ -386,7 +406,7 @@ end
 sgs.ai_card_intention.NosJiefanCard = sgs.ai_card_intention.Peach
 
 sgs.ai_skill_cardask["nosjiefan-slash"] = function(self, data, pattern, target)
-	if self:isEnemy(target) and self:needLeiji(target, self.player) then return "." end
+	if self:isEnemy(target) and self:findLeijiTarget(target, 50, self.player) then return "." end
 	for _, slash in ipairs(self:getCards("Slash")) do
 		if self:slashIsEffective(slash, target) then 
 			return slash:toString()
@@ -427,12 +447,19 @@ sgs.ai_skill_playerchosen.nosmiji = function(self, targets)
 	return to or self.player
 end
 
+sgs.ai_playerchosen_intention.nosmiji = function(self, from, to)
+	if not (self:needKongcheng(to, true) and from:getLostHp() == 1)
+		and not hasManjuanEffect(to) then
+		sgs.updateIntention(from, to, -10)
+	end
+end
+
 sgs.ai_skill_invoke.nosqianxi = function(self, data)
 	local damage = data:toDamage()
 	local target = damage.to
 	if self:isFriend(target) then return false end
 	if target:getLostHp() >= 2 and target:getHp() <= 1 then return false end
-	if self:hasSkills(sgs.masochism_skill, target) or self:hasSkills(sgs.recover_skill, target) or self:hasSkills("longhun|buqu", target) then return true end
+	if target:hasSkills(sgs.masochism_skill .. "|" .. sgs.recover_skill .. "|longhun|buqu|nosbuqu") then return true end
 	if self:hasHeavySlashDamage(self.player, damage.card, target) then return false end
 	return (target:getMaxHp() - target:getHp()) < 2
 end
@@ -466,7 +493,7 @@ end
 sgs.ai_use_value.NosLijianCard = sgs.ai_use_value.LijianCard
 sgs.ai_use_priority.NosLijianCard = sgs.ai_use_priority.LijianCard
 
-noslijian_filter = function(player, carduse)
+noslijian_filter = function(self, player, carduse)
 	if carduse.card:isKindOf("NosLijianCard") then
 		sgs.ai_lijian_effect = true
 	end
@@ -512,11 +539,11 @@ sgs.ai_skill_use_func.NosRendeCard = function(card, use, self)
 	else
 		local pangtong = self.room:findPlayerBySkillName("manjuan")
 		if not pangtong then return end
-		if self.player:isWounded() and self.player:getHandcardNum() > 3 and self.player:getMark("rende") < 2 then
+		if self.player:isWounded() and self.player:getHandcardNum() > 3 and self.player:getMark("nosrende") < 2 then
 			self:sortByUseValue(cards, true)
 			local to_give = {}
 			for _, card in ipairs(cards) do
-				if isCard("Peach", card, self.player) and not isCard("ExNihilo", card, self.player) then table.insert(to_give, card:getId()) end
+				if not isCard("Peach", card, self.player) and not isCard("ExNihilo", card, self.player) then table.insert(to_give, card:getId()) end
 				if #to_give == 2 - self.player:getMark("nosrende") then break end
 			end
 			if #to_give > 0 then
@@ -534,7 +561,9 @@ sgs.ai_card_intention.NosRendeCard = sgs.ai_card_intention.RendeCard
 
 sgs.dynamic_value.benefit.NosRendeCard = true
 
-sgs.ai_cardneed.nosjizhi = sgs.ai_cardneed.jizhi
+function sgs.ai_cardneed.nosjizhi(to, card)
+	return card:isNDTrick()
+end
 
 sgs.nosjizhi_keep_value = sgs.jizhi_keep_value
 
@@ -582,7 +611,7 @@ sgs.ai_chaofeng.nos_zhoutai = -4
 sgs.ai_skill_playerchosen.nosleiji = function(self, targets)
 	local mode = self.room:getMode()
 	if mode:find("_mini_17") or mode:find("_mini_19") or mode:find("_mini_20") or mode:find("_mini_26") then
-		local players = self.room:getAllPlayers();
+		local players = self.room:getAllPlayers()
 		for _, aplayer in sgs.qlist(players) do
 			if aplayer:getState() ~= "robot" then
 				return aplayer
@@ -598,7 +627,7 @@ sgs.ai_playerchosen_intention.nosleiji = sgs.ai_playerchosen_intention.leiji
 
 function sgs.ai_slash_prohibit.nosleiji(self, from, to, card)
 	if self:isFriend(to, from) then return false end
-	if to:hasFlag("QianxiTarget") and (not self:hasEightDiagramEffect(to) or self.player:hasWeapon("qinggang_sword")) then return false end
+	if to:hasFlag("QianxiTarget") and (not self:hasEightDiagramEffect(to) or self.player:hasWeapon("QinggangSword")) then return false end
 	local hcard = to:getHandcardNum()
 	if from:hasSkill("liegong") and (hcard >= from:getHp() or hcard <= from:getAttackRange()) then return false end
 	if from:hasSkill("kofliegong") and hcard >= from:getHp() then return false end
@@ -610,12 +639,13 @@ function sgs.ai_slash_prohibit.nosleiji(self, from, to, card)
 				break
 			end
 		end
-		if not other_rebel and ((from:getHp() >= 4 and (getCardsNum("Peach", from) > 0 or from:hasSkills("ganglie|vsganglie"))) or from:hasSkill("hongyan")) then
+		if not other_rebel and ((from:getHp() >= 4 and (getCardsNum("Peach", from, self.player) > 0 or from:hasSkills("ganglie|vsganglie"))) or from:hasSkill("hongyan")) then
 			return false
 		end
 	end
 
-	if getKnownCard(to, "Jink", true) >= 1 or (self:hasSuit("spade", true, to) and hcard >= 2) then return true end
+	if sgs.card_lack[to:objectName()]["Jink"] == 2 then return true end
+	if getKnownCard(to, "Jink", true) >= 1 or (self:hasSuit("spade", true, to) and hcard >= 2) or hcard >= 4 then return true end
 	if self:hasEightDiagramEffect(to) then return true end
 end
 
@@ -735,7 +765,8 @@ nosguhuo_skill.getTurnUseCard = function(self)
 
 		local fakeCard
 		local nosguhuo = "peach|ex_nihilo|snatch|dismantlement|amazing_grace|archery_attack|savage_assault|god_salvation"
-		if not sgs.GetConfig("BanPackages", ""):match("maneuvering") then nosguhuo = nosguhuo .. "|fire_attack" end
+		local ban = table.concat(sgs.Sanguosha:getBanPackages(), "|")
+		if not ban:match("maneuvering") then nosguhuo = nosguhuo .. "|fire_attack" end
 		local nosguhuos = nosguhuo:split("|")
 		for i = 1, #nosguhuos do
 			local forbidden = nosguhuos[i]
@@ -820,6 +851,16 @@ nosguhuo_skill.getTurnUseCard = function(self)
 		end
 	end
 
+	if self:isWeak() then
+		local peach_str = self:getGuhuoCard("Peach", true, -1)
+		if peach_str then
+			local card = sgs.Card_Parse(peach_str)
+			local peach = sgs.Sanguosha:cloneCard("peach", card:getSuit(), card:getNumber())
+			local dummy_use = { isDummy = true }
+			self:useBasicCard(peach, dummy_use)
+			if dummy_use.card then return card end
+		end
+	end
 	local slash_str = self:getGuhuoCard("Slash", true, -1)
 	if slash_str and self:slashIsAvailable() then
 		local card = sgs.Card_Parse(slash_str)

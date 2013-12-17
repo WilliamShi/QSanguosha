@@ -71,6 +71,7 @@ RoomScene::RoomScene(QMainWindow *main_window)
     _m_commonLayout = &(G_ROOM_SKIN.getCommonLayout());
 
     m_skillButtonSank = false;
+    guhuo_log = QString();
 
     // create photos
     for (int i = 0; i < player_count - 1;i++) {
@@ -754,7 +755,10 @@ void RoomScene::adjustItems() {
 
     padding -= _m_roomLayout->m_photoRoomPadding;
     m_tablew = displayRegion.width() - _m_infoPlane.width();
+<<<<<<< HEAD
 	//m_tablew = displayRegion.width() - _m_roomLayout->m_infoPlaneWidth;
+=======
+>>>>>>> upstream/master
     m_tableh = displayRegion.height() - dashboard->boundingRect().height();
     QPixmap tableBg = G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_TABLE_BG)
                                  .scaled(m_tablew, m_tableh, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
@@ -1531,6 +1535,16 @@ void RoomScene::chooseOption(const QString &skillName, const QStringList &option
     QVBoxLayout *layout = new QVBoxLayout;
     QString title = Sanguosha->translate(skillName);
     dialog->setWindowTitle(title);
+
+    if (skillName.contains("guhuo") && !guhuo_log.isEmpty()) {
+        QLabel *guhuo_text = new QLabel(guhuo_log, dialog);
+        guhuo_text->setObjectName("guhuo_text");
+        guhuo_text->setMaximumWidth(240);
+        guhuo_text->setWordWrap(true);
+        layout->addWidget(guhuo_text);
+
+        guhuo_log = QString();
+    }
     layout->addWidget(new QLabel(tr("Please choose:")));
 
     foreach (QString option, options) {
@@ -1942,8 +1956,9 @@ void RoomScene::keepGetCardLog(const CardsMoveStruct &move) {
         QString card_str = IntList2StringList(move.card_ids).join("+");
         log_box->appendLog("$RecycleCard", to_general, QStringList(), card_str);
     }
-    if (move.from && move.from_place != Player::PlaceHand && move.to_place != Player::PlaceDelayedTrick
-        && move.from_place != Player::PlaceJudge && move.to && move.from != move.to) {
+    if (move.from && move.from_place != Player::PlaceHand
+        && move.to_place != Player::PlaceDelayedTrick && move.to_place != Player::PlaceJudge
+        && move.to && move.from != move.to) {
         QString from_general = move.from->objectName();
         QStringList tos;
         tos << move.to->objectName();
@@ -2013,6 +2028,8 @@ void RoomScene::addSkillButton(const Skill *skill, bool) {
         dialog->setParent(main_window, Qt::Dialog);
         connect(btn, SIGNAL(skill_activated()), dialog, SLOT(popup()));
         connect(btn, SIGNAL(skill_deactivated()), dialog, SLOT(reject()));
+        disconnect(btn, SIGNAL(skill_activated()), this, SLOT(onSkillActivated()));
+        connect(dialog, SIGNAL(onButtonClick()), this, SLOT(onSkillActivated()));
         if (dialog->objectName() == "qice")
             connect(dialog, SIGNAL(onButtonClick()), dashboard, SLOT(selectAll()));
     }
@@ -2544,9 +2561,16 @@ void RoomScene::onSkillDeactivated() {
 
 void RoomScene::onSkillActivated() {
     QSanSkillButton *button = qobject_cast<QSanSkillButton *>(sender());
-    const ViewAsSkill *skill = button->getViewAsSkill();
+    const ViewAsSkill *skill = NULL;
+    if (button)
+        skill = button->getViewAsSkill();
+    else {
+        QDialog *dialog = qobject_cast<QDialog *>(sender());
+        if (dialog)
+            skill = Sanguosha->getViewAsSkill(dialog->objectName());
+    }
 
-    if (skill) {
+    if (skill && !skill->inherits("FilterSkill")) {
         dashboard->startPending(skill);
         //ok_button->setEnabled(false);
         cancel_button->setEnabled(true);

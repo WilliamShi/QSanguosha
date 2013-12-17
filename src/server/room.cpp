@@ -1111,6 +1111,11 @@ int Room::askForCardChosen(ServerPlayer *player, ServerPlayer *who, const QStrin
     while (isPaused()) {}
     notifyMoveFocus(player, S_COMMAND_CHOOSE_CARD);
 
+    // process dongcha
+    if (who->objectName() == tag.value("Dongchaee").toString()
+        && player->objectName() == tag.value("Dongchaer").toString())
+        handcard_visible = true;
+
     if (handcard_visible && !who->isKongcheng()) {
         QList<int> handcards = who->handCards();
         Json::Value arg(Json::arrayValue);
@@ -3279,6 +3284,8 @@ void Room::marshal(ServerPlayer *player) {
 
         if (p->getGeneral2())
             notifyProperty(player, p, "general2");
+
+        notifyProperty(player, p, "state");
     }
 
     doNotify(player, S_COMMAND_GAME_START, Json::Value::null);
@@ -4671,41 +4678,56 @@ ServerPlayer *Room::getLord() const{
     return NULL;
 }
 
-void Room::askForGuanxing(ServerPlayer *zhuge, const QList<int> &cards, bool up_only) {
+void Room::askForGuanxing(ServerPlayer *zhuge, const QList<int> &cards, GuanxingType guanxing_type) {
     QList<int> top_cards, bottom_cards;
     while (isPaused()) {}
     notifyMoveFocus(zhuge, S_COMMAND_SKILL_GUANXING);
 
     AI *ai = zhuge->getAI();
     if (ai) {
-        ai->askForGuanxing(cards, top_cards, bottom_cards, up_only);
-    } else if (up_only && cards.length() == 1) {
+        ai->askForGuanxing(cards, top_cards, bottom_cards, (int)guanxing_type);
+    } else if (guanxing_type == GuanxingUpOnly && cards.length() == 1) {
         top_cards = cards;
+    } else if (guanxing_type == GuanxingDownOnly && cards.length() == 1) {
+        bottom_cards = cards;
     } else {
         Json::Value guanxingArgs(Json::arrayValue);
         guanxingArgs[0] = toJsonArray(cards);
-        guanxingArgs[1] = up_only;
+        guanxingArgs[1] = (guanxing_type != GuanxingBothSides);
         bool success = doRequest(zhuge, S_COMMAND_SKILL_GUANXING, guanxingArgs, true);
         if (!success) {
-            foreach (int card_id, cards)
-                m_drawPile->prepend(card_id);
+            foreach (int card_id, cards) {
+                if (guanxing_type = GuanxingDownOnly)
+                    m_drawPile->append(card_id);
+                else
+                    m_drawPile->prepend(card_id);
+            }
             return;
         }
         Json::Value clientReply = zhuge->getClientReply();
         if (clientReply.isArray() && clientReply.size() == 2) {
             success &= tryParse(clientReply[0], top_cards);
             success &= tryParse(clientReply[1], bottom_cards);
+            if (guanxing_type == GuanxingDownOnly) {
+                bottom_cards = top_cards;
+                top_cards.clear();
+            }
         }
     }
 
     bool length_equal = top_cards.length() + bottom_cards.length() == cards.length();
     bool result_equal = top_cards.toSet() + bottom_cards.toSet() == cards.toSet();
     if (!length_equal || !result_equal) {
-        top_cards = cards;
-        bottom_cards.clear();
+        if (guanxing_type == GuanxingDownOnly) {
+            bottom_cards = cards;
+            top_cards.clear();
+        } else {
+            top_cards = cards;
+            bottom_cards.clear();
+        }
     }
 
-    if (!up_only) {
+    if (guanxing_type == GuanxingBothSides) {
         LogMessage log;
         log.type = "#GuanxingResult";
         log.from = zhuge;
@@ -4769,7 +4791,7 @@ int Room::doGongxin(ServerPlayer *shenlvmeng, ServerPlayer *target, QList<int> e
             shenlvmeng->tag.remove(skill_name);
             return -1;
         }
-        card_id = ai->askForAG(enabled_ids, true, objectName());
+        card_id = ai->askForAG(enabled_ids, true, skill_name);
         if (card_id == -1) {
             shenlvmeng->tag.remove(skill_name);
             return -1;
@@ -4906,8 +4928,7 @@ ServerPlayer *Room::askForPlayerChosen(ServerPlayer *player, const QList<ServerP
     if (targets.isEmpty()) {
         Q_ASSERT(optional);
         return NULL;
-    }
-    else if (targets.length() == 1 && !optional) {
+    } else if (targets.length() == 1 && !optional) {
         QVariant data = QString("%1:%2:%3").arg("playerChosen").arg(skillName).arg(targets.first()->objectName());
         thread->trigger(ChoiceMade, this, player, data);
         return targets.first();
@@ -5425,17 +5446,19 @@ QString Room::generatePlayerName() {
     return QString("sgs%1").arg(id);
 }
 
-QString Room::askForOrder(ServerPlayer *player) {
+QString Room::askForOrder(ServerPlayer *player, const QString &default_choice) {
     while (isPaused()) {}
     notifyMoveFocus(player, S_COMMAND_CHOOSE_ORDER);
 
+    if (player->getAI())
+        return default_choice;
+
     bool success = doRequest(player, S_COMMAND_CHOOSE_ORDER, (int)S_REASON_CHOOSE_ORDER_TURN, true);
 
-    Game3v3Camp result = qrand() % 2 == 0 ? S_CAMP_WARM : S_CAMP_COOL;
     Json::Value clientReply = player->getClientReply();
     if (success && clientReply.isInt())
-        result = (Game3v3Camp)clientReply.asInt();
-    return (result == S_CAMP_WARM) ? "warm" : "cool";
+        return ((Game3v3Camp)clientReply.asInt() == S_CAMP_WARM) ? "warm" : "cool";
+    return default_choice;
 }
 
 QString Room::askForRole(ServerPlayer *player, const QStringList &roles, const QString &scheme) {

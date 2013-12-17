@@ -263,8 +263,8 @@ bool JuejiCard::targetFilter(const QList<const Player *> &targets, const Player 
 void JuejiCard::onEffect(const CardEffectStruct &effect) const{
     ServerPlayer *to = effect.to;
     QVariant data = QVariant::fromValue(to);
-    while (effect.from->pindian(effect.to, "jueji", this)){
-        if (!(effect.from->isKongcheng() || effect.to->isKongcheng()) || !effect.from->askForSkillInvoke("jueji", data))
+    while (effect.from->pindian(effect.to, "jueji", NULL)){
+        if (effect.from->isKongcheng() || effect.to->isKongcheng() || !effect.from->askForSkillInvoke("jueji", data))
             break;
     }
 }
@@ -286,7 +286,7 @@ public:
 
 class Jueji: public TriggerSkill{
 public:
-    Jueji():TriggerSkill("jueji"){ //@todo: AI
+    Jueji():TriggerSkill("jueji"){
         events << Pindian;
         view_as_skill = new JuejiViewAsSkill;
     }
@@ -1014,8 +1014,8 @@ public:
                 if (targets.isEmpty())
                     return false;
 
-                if (damage.from->askForSkillInvoke(objectName(), data))    {
-                    ServerPlayer *target = room->askForPlayerChosen(damage.from, targets, objectName());
+                ServerPlayer *target = room->askForPlayerChosen(damage.from, targets, objectName(), "@shaoying", true, true);
+                if (target != NULL){
 
                     LogMessage log;
                     log.type = "#Shaoying";
@@ -1082,7 +1082,7 @@ public:
             }
             fire_slash->setSkillName(objectName());
 
-            room->broadcastSkillInvoke(objectName());
+            //room->broadcastSkillInvoke(objectName());
             LogMessage log;
             log.type = "#Zonghuo";
             log.from = player;
@@ -1094,10 +1094,6 @@ public:
         }
 
         return false;
-    }
-
-    virtual int getEffectIndex(const ServerPlayer *, const Card *) const{
-        return -2;
     }
 };
 
@@ -1112,7 +1108,7 @@ public:
             case Player::Finish:{
                 Room *room = zhongshiji->getRoom();
                 QList<ServerPlayer *> players = room->getOtherPlayers(zhongshiji);
-                ServerPlayer *target = room->askForPlayerChosen(zhongshiji, players, "gongmou", QString(), true, true);
+                ServerPlayer *target = room->askForPlayerChosen(zhongshiji, players, "gongmou", "@gongmou", true, true);
                 if (target){
                     room->broadcastSkillInvoke(objectName());
                     target->gainMark("@conspiracy");
@@ -1375,8 +1371,16 @@ public:
                 Room *room = player->getRoom();
                 QList<ServerPlayer *> players = room->getOtherPlayers(player);
                 ServerPlayer *dongchaee;
-                if (dongchaee = room->askForPlayerChosen(player, players, objectName(), "@dongcha", true, true)){
+                if (dongchaee = room->askForPlayerChosen(player, players, objectName(), "@dongcha", true)){
+                    room->notifySkillInvoked(player, objectName());
                     room->broadcastSkillInvoke(objectName());
+
+                    LogMessage log;
+                    log.type = "#ChoosePlayerWithSkill";
+                    log.from = player;
+                    log.to << dongchaee;
+                    log.arg = objectName();
+                    room->doNotify(player, QSanProtocol::S_COMMAND_LOG_SKILL, log.toJsonValue());
 
                     room->setPlayerFlag(dongchaee, "dongchaee");
                     room->setTag("Dongchaee", dongchaee->objectName());
@@ -1387,7 +1391,7 @@ public:
                 break;
             }
 
-            case Player::Finish:{
+            case Player::NotActive:{
                 Room *room = player->getRoom();
                 QString dongchaee_name = room->getTag("Dongchaee").toString();
                 if(!dongchaee_name.isEmpty()){
@@ -1586,7 +1590,7 @@ public:
 
 class Toudu: public MasochismSkill{
 public:
-    Toudu():MasochismSkill("toudu"){ // @todo: AI
+    Toudu():MasochismSkill("toudu"){
         view_as_skill = new TouduViewAsSkill;
     }
 
@@ -1623,7 +1627,6 @@ void YisheCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &) c
 class YisheViewAsSkill: public ViewAsSkill{
 public:
     YisheViewAsSkill():ViewAsSkill("yishe"){
-        card = new YisheCard;
     }
 
     virtual bool isEnabledAtPlay(const Player *player) const{
@@ -1645,13 +1648,10 @@ public:
         if(Self->getPile("rice").isEmpty() && cards.isEmpty())
             return NULL;
 
-        card->clearSubcards();
+        YisheCard *card = new YisheCard;
         card->addSubcards(cards);
         return card;
     }
-
-private:
-    YisheCard *card;
 };
 
 YisheAskCard::YisheAskCard(){
@@ -1780,13 +1780,14 @@ public:
         //frequency = Frequent;
     }
 
-    virtual bool trigger(TriggerEvent, Room *, ServerPlayer *player, QVariant &data) const{
+    virtual bool trigger(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data) const{
         SlashEffectStruct effect = data.value<SlashEffectStruct>();
 
         if(effect.jink && player->getRoom()->getCardPlace(effect.jink->getEffectiveId()) == Player::DiscardPile
-            && player->askForSkillInvoke(objectName(), data))
-
+            && player->askForSkillInvoke(objectName(), data)) {
+            room->broadcastSkillInvoke(objectName());
             player->obtainCard(effect.jink);
+        }
 
         return false;
     }
@@ -1809,6 +1810,7 @@ public:
             log.arg2 = QString::number(-- damage.damage);
             room->sendLog(log);
 
+            room->broadcastSkillInvoke(objectName());
             if (damage.damage <= 0)
                 return true;
 
