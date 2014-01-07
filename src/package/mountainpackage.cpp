@@ -245,7 +245,7 @@ public:
             QList<const Skill *> skills = death.damage->from->getVisibleSkillList();
             QStringList detachList;
             foreach (const Skill *skill, skills) {
-                if (skill->getLocation() == Skill::Right && !skill->inherits("SPConvertSkill") && !skill->isAttachedLordSkill())
+                if (skill->getLocation() == Skill::Right && !skill->isAttachedLordSkill())
                     detachList.append("-" + skill->objectName());
             }
             room->handleAcquireDetachSkills(death.damage->from, detachList);
@@ -284,7 +284,7 @@ public:
             }
         } else if (triggerEvent == FinishJudge) {
             JudgeStar judge = data.value<JudgeStar>();
-            if (judge->reason == "tuntian" && judge->isGood())
+            if (judge->reason == "tuntian" && judge->isGood() && room->getCardPlace(judge->card->getEffectiveId()) == Player::PlaceJudge)
                 player->addToPile("field", judge->card->getEffectiveId());
         }
 
@@ -1230,7 +1230,7 @@ public:
             foreach (QString general_name, huashen_generals) {
                 const General *general = Sanguosha->getGeneral(general_name);
                 foreach (const Skill *skill, general->getVisibleSkillList()) {
-                    if (skill->isLordSkill() || skill->inherits("SPConvertSkill")
+                    if (skill->isLordSkill()
                         || skill->getFrequency() == Skill::Limited
                         || skill->getFrequency() == Skill::Wake)
                         continue;
@@ -1250,7 +1250,7 @@ public:
             general = Sanguosha->getGeneral(general_name);
 
             foreach (const Skill *skill, general->getVisibleSkillList()) {
-                if (skill->isLordSkill() || skill->inherits("SPConvertSkill")
+                if (skill->isLordSkill()
                     || skill->getFrequency() == Skill::Limited
                     || skill->getFrequency() == Skill::Wake)
                     continue;
@@ -1258,11 +1258,10 @@ public:
                 skill_names << skill->objectName();
             }
 
-            if (skill_names.isEmpty()) return;
-
-            skill_name = room->askForChoice(zuoci, "huashen", skill_names.join("+"));
+            if (!skill_names.isEmpty())
+                skill_name = room->askForChoice(zuoci, "huashen", skill_names.join("+"));
         }
-        Q_ASSERT(!skill_name.isNull() && !skill_name.isEmpty());
+        //Q_ASSERT(!skill_name.isNull() && !skill_name.isEmpty());
 
         QString kingdom = general->getKingdom();
         if (zuoci->getKingdom() != kingdom) {
@@ -1289,7 +1288,8 @@ public:
         room->doBroadcastNotify(QSanProtocol::S_COMMAND_LOG_EVENT, arg);
 
         zuoci->tag["HuashenSkill"] = skill_name;
-        ac_dt_list.append(skill_name);
+        if (!skill_name.isEmpty())
+            ac_dt_list.append(skill_name);
         room->handleAcquireDetachSkills(zuoci, ac_dt_list, true);
     }
 
@@ -1369,7 +1369,9 @@ public:
             room->setPlayerProperty(player, "kingdom", player->getGeneral()->getKingdom());
         if (player->getGender() != player->getGeneral()->getGender())
             player->setGender(player->getGeneral()->getGender());
-        room->detachSkillFromPlayer(player, player->tag["HuashenSkill"].toString(), false, true);
+        QString huashen_skill = player->tag["HuashenSkill"].toString();
+        if (!huashen_skill.isEmpty())
+            room->detachSkillFromPlayer(player, huashen_skill, false, true);
         player->tag.remove("Huashens");
         room->setPlayerMark(player, "@huashen", 0);
     }

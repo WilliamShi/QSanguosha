@@ -300,7 +300,12 @@ ServerPlayer *RoomThread::find3v3Next(QList<ServerPlayer *> &first, QList<Server
         }
 
         qSwap(first, second);
-        return room->askForPlayerChosen(first.first(), first, "3v3-action", "@3v3-action");
+        QList<ServerPlayer *> first_alive;
+        foreach (ServerPlayer *p, first) {
+            if (p->isAlive())
+                first_alive << p;
+        }
+        return room->askForPlayerChosen(first.first(), first_alive, "3v3-action", "@3v3-action");
     }
 
     ServerPlayer *current = room->getCurrent();
@@ -349,7 +354,8 @@ void RoomThread::_handleTurnBroken3v3(QList<ServerPlayer *> &first, QList<Server
         ServerPlayer *player = room->getCurrent();
         trigger(TurnBroken, room, player);
         if (player->getPhase() != Player::NotActive) {
-            game_rule->trigger(EventPhaseEnd, room, player, QVariant());
+            QVariant data;
+            game_rule->trigger(EventPhaseEnd, room, player, data);
             player->changePhase(player->getPhase(), Player::NotActive);
         }
         if (!player->hasFlag("actioned"))
@@ -512,7 +518,8 @@ void RoomThread::_handleTurnBrokenNormal(GameRule *game_rule) {
         trigger(TurnBroken, room, player);
         ServerPlayer *next = player->getNextAlive();
         if (player->getPhase() != Player::NotActive) {
-            game_rule->trigger(EventPhaseEnd, room, player, QVariant());
+            QVariant data = QVariant();
+            game_rule->trigger(EventPhaseEnd, room, player, data);
             player->changePhase(player->getPhase(), Player::NotActive);
         }
 
@@ -562,7 +569,7 @@ void RoomThread::run() {
                 case Player::Rebel: cool.append(player); break;
                 }
             }
-            order = room->askForOrder(cool.first());
+            order = room->askForOrder(cool.first(), "cool");
             if (order == "warm") {
                 first = warm;
                 second = cool;
@@ -571,8 +578,8 @@ void RoomThread::run() {
                 second = warm;
             }
         }
-        trigger(GameStart, (Room *)room, NULL);
         constructTriggerTable();
+        trigger(GameStart, (Room *)room, NULL);
         if (room->getMode() == "06_3v3") {
             run3v3(first, second, game_rule, first.first());
         } else if (room->getMode() == "04_1v3") {
@@ -597,6 +604,7 @@ void RoomThread::run() {
     }
     catch (TriggerEvent triggerEvent) {
         if (triggerEvent == GameFinished) {
+            terminate();
             Sanguosha->unregisterRoom();
             return;
         } else

@@ -404,10 +404,7 @@ XuanfengCard::XuanfengCard(){
 }
 
 bool XuanfengCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const{
-    if(targets.length() >= 2)
-        return false;
-
-    if(to_select == Self)
+    if (targets.length() >= 2 || to_select == Self)
         return false;
 
     return Self->canDiscard(to_select, "he");
@@ -419,15 +416,10 @@ void XuanfengCard::use(Room *room, ServerPlayer *lingtong, QList<ServerPlayer *>
     int totaltarget = 0;
     foreach(ServerPlayer* sp, targets)
         map[sp]++;
-    for (int i = 0; i < map.keys().size(); i++) {
-        totaltarget++;
-    }
+    totaltarget = map.keys().size();
     // only chose one and throw only one card of him is forbiden
-    if(totaltarget == 1){
-        foreach(ServerPlayer* sp,map.keys()){
-            map[sp]++;
-        }
-    }
+    if(totaltarget == 1) map[targets.first()] = 2;
+
     foreach(ServerPlayer* sp, targets){
         while(map[sp] > 0){
             if(lingtong->isAlive() && sp->isAlive() && lingtong->canDiscard(sp, "he")){
@@ -454,6 +446,7 @@ class Xuanfeng: public TriggerSkill {
 public:
     Xuanfeng(): TriggerSkill("xuanfeng") {
         events << CardsMoveOneTime << EventPhaseChanging;
+        view_as_skill = new XuanfengViewAsSkill;
     }
 
     virtual bool triggerable(const ServerPlayer *target) const{
@@ -522,28 +515,16 @@ void XianzhenCard::onEffect(const CardEffectStruct &effect) const{
         PlayerStar target = effect.to;
         effect.from->tag["XianzhenTarget"] = QVariant::fromValue(target);
         room->setPlayerFlag(effect.from, "XianzhenSuccess");
-        room->setPlayerFlag(effect.from, "xianzhen");
+
+        QStringList assignee_list = effect.from->property("extra_slash_specific_assignee").toString().split("+");
+        assignee_list << target->objectName();
+        room->setPlayerProperty(effect.from, "extra_slash_specific_assignee", assignee_list.join("+"));
+
         room->setFixedDistance(effect.from, effect.to, 1);
         room->addPlayerMark(effect.to, "Armor_Nullified");
     } else {
         room->setPlayerCardLimitation(effect.from, "use", "Slash", true);
     }
-}
-
-XianzhenSlashCard::XianzhenSlashCard() {
-    target_fixed = true;
-    handling_method = Card::MethodUse;
-}
-
-void XianzhenSlashCard::onUse(Room *room, const CardUseStruct &card_use) const{
-    ServerPlayer *target = card_use.from->tag["XianzhenTarget"].value<PlayerStar>();
-    if (target == NULL || target->isDead())
-        return;
-
-    if (!card_use.from->canSlash(target, NULL, false))
-        return;
-
-    room->askForUseSlashTo(card_use.from, target, "@xianzhen-slash");
 }
 
 class XianzhenViewAsSkill: public ZeroCardViewAsSkill {
@@ -552,23 +533,11 @@ public:
     }
 
     virtual bool isEnabledAtPlay(const Player *player) const{
-        if (!player->hasUsed("XianzhenCard") && !player->isKongcheng())
-            return true;
-        Slash *slashx = new Slash(Card::NoSuit, 0);
-        slashx->deleteLater();
-        if (!player->isCardLimited(slashx, Card::MethodUse) && player->hasFlag("XianzhenSuccess"))
-            return true;
-
-        return false;
+        return !player->hasUsed("XianzhenCard") && !player->isKongcheng();
     }
 
     virtual const Card *viewAs() const{
-        if (!Self->hasUsed("XianzhenCard"))
-            return new XianzhenCard;
-        else if (Self->hasFlag("XianzhenSuccess"))
-            return new XianzhenSlashCard;
-        else
-            return NULL;
+        return new XianzhenCard;
     }
 };
 
@@ -602,8 +571,10 @@ public:
             }
         }
         if (target) {
-            if (gaoshun->hasFlag("xianzhen"))
-                room->setPlayerFlag(gaoshun, "-xianzhen");
+            QStringList assignee_list = gaoshun->property("extra_slash_specific_assignee").toString().split("+");
+            assignee_list.removeOne(target->objectName());
+            room->setPlayerProperty(gaoshun, "extra_slash_specific_assignee", assignee_list.join("+"));
+
             room->setFixedDistance(gaoshun, target, -1);
             gaoshun->tag.remove("XianzhenTarget");
             room->removePlayerMark(target, "Armor_Nullified");
@@ -944,7 +915,7 @@ void XinzhanCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &)
     }
 
     if (!left.isEmpty())
-        room->askForGuanxing(source, left, true);
+        room->askForGuanxing(source, left, Room::GuanxingUpOnly);
  }
 
 class Xinzhan: public ZeroCardViewAsSkill {
@@ -1243,11 +1214,10 @@ YJCMPackage::YJCMPackage()
     addMetaObject<MingceCard>();
     addMetaObject<GanluCard>();
     addMetaObject<XianzhenCard>();
-    addMetaObject<XianzhenSlashCard>();
     addMetaObject<XinzhanCard>();
-    addMetaObject<XuanfengCard>();
     addMetaObject<JujianCard>();
     addMetaObject<PaiyiCard>();
+    addMetaObject<XuanfengCard>();
 
     skills << new Paiyi;
 }

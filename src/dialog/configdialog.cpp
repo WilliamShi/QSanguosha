@@ -28,7 +28,7 @@ ConfigDialog::ConfigDialog(QWidget *parent)
     ui->enableBgMusicCheckBox->setChecked(Config.EnableBgMusic);
 
     bool enabled_full = QFile::exists("skins/fulldefaultSkin.layout.json");
-    ui->fullSkinCheckBox->setEnabled(enabled_full);
+    ui->fullSkinCheckBox->setVisible(enabled_full);
     ui->fullSkinCheckBox->setChecked(enabled_full && Config.value("UseFullSkin", false).toBool());
     ui->noIndicatorCheckBox->setChecked(Config.value("NoIndicator", false).toBool());
     ui->noEquipAnimCheckBox->setChecked(Config.value("NoEquipAnim", false).toBool());
@@ -40,6 +40,7 @@ ConfigDialog::ConfigDialog(QWidget *parent)
     ui->neverNullifyMyTrickCheckBox->setChecked(Config.NeverNullifyMyTrick);
     ui->autoTargetCheckBox->setChecked(Config.EnableAutoTarget);
     ui->intellectualSelectionCheckBox->setChecked(Config.EnableIntellectualSelection);
+    ui->doubleClickCheckBox->setChecked(Config.EnableDoubleClick);
 
     connect(this, SIGNAL(accepted()), this, SLOT(saveConfig()));
 
@@ -124,6 +125,9 @@ void ConfigDialog::saveConfig() {
 
     Config.EnableIntellectualSelection = ui->intellectualSelectionCheckBox->isChecked();
     Config.setValue("EnableIntellectualSelection", Config.EnableIntellectualSelection);
+
+    Config.EnableDoubleClick = ui->doubleClickCheckBox->isChecked();
+    Config.setValue("EnableDoubleClick", Config.EnableDoubleClick);
 }
 
 void ConfigDialog::on_browseBgMusicButton_clicked() {

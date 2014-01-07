@@ -333,8 +333,7 @@ local function XinZhan(self, cards)
 		local index = 1
 		local lightning_flag = false
 		local judge_str = sgs.ai_judgestring[need_judge:objectName()] or sgs.ai_judgestring[need_judge:getSuitString()]
-		self:log("------------------>"..judge_str ..":")
-		
+
 		for _, for_judge in ipairs(bottom) do
 			if judge_str == "spade" and not lightning_flag then
 				has_lightning = need_judge
@@ -380,13 +379,16 @@ local function XinZhan(self, cards)
 	return up, {}
 end
 
-function SmartAI:askForGuanxing(cards, up_only)
+function SmartAI:askForGuanxing(cards, guanxing_type)
 	--KOF模式--
-	local func = Tactic("guanxing", self, up_only)
-	if func then return func(self, cards) end
+	if guanxing_type ~= sgs.Room_GuanxingDownOnly then
+		local func = Tactic("guanxing", self, guanxing_type == sgs.Room_GuanxingUpOnly)
+		if func then return func(self, cards) end
+	end
 	--身份局--
-	if not up_only then return GuanXing(self,cards)
-	else return XinZhan(self, cards)
+	if guanxing_type == sgs.Room_GuanxingBothSides then return GuanXing(self, cards)
+	elseif guanxing_type == sgs.Room_GuanxingUpOnly then return XinZhan(self, cards)
+	elseif guanxing_type == sgs.Room_GuanxingDownOnly then return {}, cards
 	end
 	return cards, {}
 end

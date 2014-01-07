@@ -63,6 +63,8 @@ public:
 
             room->broadcastSkillInvoke(objectName());
             to->drawCards(x);
+            if (!xunyu->isAlive())
+                break;
         }
     }
 };
@@ -245,7 +247,7 @@ public:
             }
         } else if (triggerEvent == FinishJudge) {
             JudgeStar judge = data.value<JudgeStar>();
-            if (judge->reason == "shuangxiong")
+            if (judge->reason == "shuangxiong" && room->getCardPlace(judge->card->getEffectiveId()) == Player::PlaceJudge)
                 shuangxiong->obtainCard(judge->card);
         } else if (triggerEvent == EventPhaseChanging) {
             PhaseChangeStruct change = data.value<PhaseChangeStruct>();
@@ -376,7 +378,7 @@ public:
             judge.reason = objectName();
             judge.who = wolong;
 
-            room->setEmotion(wolong, "armor/eight_diagram");
+            room->setEmotion(wolong, "armor/EightDiagram");
             room->judge(judge);
 
             if (judge.isGood()) {

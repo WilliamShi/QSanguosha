@@ -67,7 +67,7 @@ public:
 
     virtual bool trigger(TriggerEvent, Room *room, ServerPlayer *player, QVariant &data) const{
         CardUseStruct use = data.value<CardUseStruct>();
-        if (use.card && use.card->isKindOf("Slash") && room->askForSkillInvoke(player, objectName())) {
+        if (use.card->isKindOf("Slash") && room->askForSkillInvoke(player, objectName())) {
             room->broadcastSkillInvoke(objectName(), 1);
             room->askForDiscard(player, objectName(), 2, 2, false, true);
             player->drawCards(2);
@@ -159,6 +159,10 @@ public:
     Mizhao(): TriggerSkill("mizhao") {
         events << Pindian;
         view_as_skill = new MizhaoViewAsSkill;
+    }
+
+    virtual int getPriority() const{
+        return -1;
     }
 
     virtual bool triggerable(const ServerPlayer *target) const{
@@ -646,11 +650,11 @@ public:
         if (death.who == player)
             return false;
 
-        room->setPlayerProperty(splayer, "maxhp", splayer->getMaxHp() + 1);
+        room->setPlayerProperty(player, "maxhp", player->getMaxHp() + 1);
         // @todo_P: log message here
         LogMessage log;
         log.type = "#TriggerSkill";
-        log.from = splayer;
+        log.from = player;
         log.arg = "chizhong";
         room->sendLog(log);
         room->broadcastSkillInvoke("chizhong", 2);

@@ -15,6 +15,8 @@ PlayerCardButton::PlayerCardButton(const QString &name)
 {
 }
 
+QList<int> PlayerCardDialog::dummy_list = QList<int>();
+
 PlayerCardDialog::PlayerCardDialog(const ClientPlayer *player, const QString &flags,
                                    bool handcard_visible, Card::HandlingMethod method, QList<int> &disabled_ids)
     : player(player), handcard_visible(handcard_visible), method(method), disabled_ids(disabled_ids)
@@ -59,7 +61,7 @@ QWidget *PlayerCardDialog::createAvatar() {
 }
 
 QWidget *PlayerCardDialog::createHandcardButton() {
-    if (!player->isKongcheng() && ((Self->hasSkill("dongcha") && player->hasFlag("dongchaee")) || Self == player || handcard_visible)) {
+    if (!player->isKongcheng() && (Self == player || handcard_visible)) {
         QGroupBox *area = new QGroupBox(tr("Handcard area"));
         QVBoxLayout *layout =  new QVBoxLayout;
         QList<const Card *> cards = player->getHandcards();

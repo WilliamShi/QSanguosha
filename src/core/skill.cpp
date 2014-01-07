@@ -34,8 +34,12 @@ bool Skill::isAttachedLordSkill() const{
 }
 
 QString Skill::getDescription() const{
-    QString des_src = Sanguosha->translate(":" + objectName());
-    if (des_src == ":" + objectName())
+    bool normal_game = ServerInfo.DuringGame && isNormalGameMode(ServerInfo.GameMode);
+    QString name = QString("%1%2").arg(objectName()).arg(normal_game ? "_p" : "");
+    QString des_src = Sanguosha->translate(":" + name);
+    if (normal_game && des_src.startsWith(":"))
+        des_src = Sanguosha->translate(":" + objectName());
+    if (des_src.startsWith(":"))
         return QString();
     return des_src;
 }
@@ -48,7 +52,7 @@ QString Skill::getNotice(int index) const{
 }
 
 bool Skill::isVisible() const{
-    return !objectName().startsWith("#");
+    return !objectName().startsWith("#") && !inherits("SPConvertSkill");
 }
 
 QString Skill::getDefaultChoice(ServerPlayer *) const{
@@ -128,7 +132,8 @@ ViewAsSkill::ViewAsSkill(const QString &name)
 bool ViewAsSkill::isAvailable(const Player *invoker,
                               CardUseStruct::CardUseReason reason, 
                               const QString &pattern) const{
-    if (!invoker->hasSkill(objectName()) && !invoker->hasFlag(objectName())) // For Shuangxiong
+    if (!invoker->hasSkill(objectName()) && !invoker->hasLordSkill(objectName())
+        && !invoker->hasFlag(objectName())) // For Shuangxiong
         return false;
     switch (reason) {
     case CardUseStruct::CARD_USE_REASON_PLAY: return isEnabledAtPlay(invoker);
@@ -262,9 +267,7 @@ MasochismSkill::MasochismSkill(const QString &name)
 
 bool MasochismSkill::trigger(TriggerEvent, Room *, ServerPlayer *player, QVariant &data) const{
     DamageStruct damage = data.value<DamageStruct>();
-
-    if (player->isAlive())
-        onDamaged(player, damage);
+    onDamaged(player, damage);
 
     return false;
 }
@@ -279,10 +282,13 @@ bool PhaseChangeSkill::trigger(TriggerEvent, Room *, ServerPlayer *player, QVari
     return onPhaseChange(player);
 }
 
-DrawCardsSkill::DrawCardsSkill(const QString &name)
-    : TriggerSkill(name)
+DrawCardsSkill::DrawCardsSkill(const QString &name, bool is_initial)
+    : TriggerSkill(name), is_initial(is_initial)
 {
-    events << DrawNCards;
+    if (is_initial)
+        events << DrawInitialCards;
+    else
+        events << DrawNCards;
 }
 
 bool DrawCardsSkill::trigger(TriggerEvent, Room *, ServerPlayer *player, QVariant &data) const{

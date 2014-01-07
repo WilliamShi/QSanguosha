@@ -54,6 +54,7 @@ private:
     int item;
     QStringList ban_list;
     QPushButton *add2nd;
+    QMap<QString, QStringList> banned_items;
 
 private slots:
     void addGeneral(const QString &name);
@@ -128,7 +129,6 @@ private:
     QSpinBox *nullification_spinbox;
     QCheckBox *minimize_dialog_checkbox;
     QCheckBox *ai_enable_checkbox;
-    QCheckBox *ai_chat_checkbox;
     QSpinBox *ai_delay_spinbox;
     QCheckBox *ai_delay_altered_checkbox;
     QSpinBox *ai_delay_ad_spinbox;
@@ -174,7 +174,6 @@ public:
     void daemonize();
     Room *createNewRoom();
     void signupPlayer(ServerPlayer *player);
-    void gamesOver();
 
 private:
     ServerSocket *server;

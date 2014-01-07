@@ -384,9 +384,6 @@ QWidget *ServerDialog::createMiscTab() {
     ai_enable_checkbox->setChecked(Config.EnableAI);
     ai_enable_checkbox->setEnabled(false); // Force to enable AI for disabling it causes crashes!!
 
-    ai_chat_checkbox = new QCheckBox(tr("AI Chat"));
-    ai_chat_checkbox->setChecked(Config.value("AIChat", true).toBool());
-
     ai_delay_spinbox = new QSpinBox;
     ai_delay_spinbox->setMinimum(0);
     ai_delay_spinbox->setMaximum(5000);
@@ -405,7 +402,6 @@ QWidget *ServerDialog::createMiscTab() {
     connect(ai_delay_altered_checkbox, SIGNAL(toggled(bool)), ai_delay_ad_spinbox, SLOT(setEnabled(bool)));
 
     layout->addWidget(ai_enable_checkbox);
-    layout->addWidget(ai_chat_checkbox);
     layout->addLayout(HLay(new QLabel(tr("AI delay")), ai_delay_spinbox));
     layout->addWidget(ai_delay_altered_checkbox);
     layout->addLayout(HLay(new QLabel(tr("AI delay After Death")), ai_delay_ad_spinbox));
@@ -544,27 +540,40 @@ BanlistDialog::BanlistDialog(QWidget *parent, bool view)
 
 void BanlistDialog::addGeneral(const QString &name) {
     if (list->objectName() == "Pairs") {
+        if (banned_items["Pairs"].contains(name)) return;
+        banned_items["Pairs"].append(name);
         QString text = QString(tr("Banned for all: %1")).arg(Sanguosha->translate(name));
         QListWidgetItem *item = new QListWidgetItem(text);
         item->setData(Qt::UserRole, QVariant::fromValue(name));
         list->addItem(item);
     } else {
-        QIcon icon(G_ROOM_SKIN.getGeneralPixmap(name, QSanRoomSkin::S_GENERAL_ICON_SIZE_TINY));
-        QString text = Sanguosha->translate(name);
-        QListWidgetItem *item = new QListWidgetItem(icon, text, list);
-        item->setSizeHint(QSize(60, 60));
-        item->setData(Qt::UserRole, name);
+        foreach (QString general_name, name.split("+")) {
+            if (banned_items[list->objectName()].contains(general_name)) continue;
+            banned_items[list->objectName()].append(general_name);
+            QIcon icon(G_ROOM_SKIN.getGeneralPixmap(general_name, QSanRoomSkin::S_GENERAL_ICON_SIZE_TINY));
+            QString text = Sanguosha->translate(general_name);
+            QListWidgetItem *item = new QListWidgetItem(icon, text, list);
+            item->setSizeHint(QSize(60, 60));
+            item->setData(Qt::UserRole, general_name);
+        }
     }
 }
 
 void BanlistDialog::add2ndGeneral(const QString &name) {
-    QString text = QString(tr("Banned for second general: %1")).arg(Sanguosha->translate(name));
-    QListWidgetItem *item = new QListWidgetItem(text);
-    item->setData(Qt::UserRole, QVariant::fromValue(QString("+%1").arg(name)));
-    list->addItem(item);
+    foreach (QString general_name, name.split("+")) {
+        if (banned_items["Pairs"].contains("+" + general_name)) continue;
+        banned_items["Pairs"].append("+" + general_name);
+        QString text = QString(tr("Banned for second general: %1")).arg(Sanguosha->translate(general_name));
+        QListWidgetItem *item = new QListWidgetItem(text);
+        item->setData(Qt::UserRole, QVariant::fromValue(QString("+%1").arg(general_name)));
+        list->addItem(item);
+    }
 }
 
 void BanlistDialog::addPair(const QString &first, const QString &second) {
+    if (banned_items["Pairs"].contains(QString("%1+%2").arg(first, second))
+        || banned_items["Pairs"].contains(QString("%1+%2").arg(second, first))) return;
+    banned_items["Pairs"].append(QString("%1+%2").arg(first, second));
     QString trfirst = Sanguosha->translate(first);
     QString trsecond = Sanguosha->translate(second);
     QListWidgetItem *item = new QListWidgetItem(QString("%1 + %2").arg(trfirst, trsecond));
@@ -573,14 +582,15 @@ void BanlistDialog::addPair(const QString &first, const QString &second) {
 }
 
 void BanlistDialog::doAddButton() {
-    FreeChooseDialog *chooser = new FreeChooseDialog(this, (list->objectName() == "Pairs"));
+    FreeChooseDialog *chooser = new FreeChooseDialog(this,
+                                                     (list->objectName() == "Pairs") ? FreeChooseDialog::Pair : FreeChooseDialog::Multi);
     connect(chooser, SIGNAL(general_chosen(QString)), this, SLOT(addGeneral(QString)));
     connect(chooser, SIGNAL(pair_chosen(QString, QString)), this, SLOT(addPair(QString, QString)));
     chooser->exec();
 }
 
 void BanlistDialog::doAdd2ndButton() {
-    FreeChooseDialog *chooser = new FreeChooseDialog(this, false);
+    FreeChooseDialog *chooser = new FreeChooseDialog(this, FreeChooseDialog::Multi);
     connect(chooser, SIGNAL(general_chosen(QString)), this, SLOT(add2ndGeneral(QString)));
     chooser->exec();
 }
@@ -628,7 +638,7 @@ QGroupBox *ServerDialog::create1v1Box() {
 
     official_1v1_ComboBox = officialComboBox;
 
-    QString rule = Config.value("1v1/Rule", "Classical").toString();
+    QString rule = Config.value("1v1/Rule", "2013").toString();
     if (rule == "2013")
         officialComboBox->setCurrentIndex(1);
     else if (rule == "OL")
@@ -924,18 +934,13 @@ Select3v3GeneralDialog::Select3v3GeneralDialog(QDialog *parent)
 void Select3v3GeneralDialog::fillTabWidget() {
     QList<const Package *> packages = Sanguosha->findChildren<const Package *>();
     foreach (const Package *package, packages) {
-        switch (package->getType()) {
-        case Package::GeneralPack:
-        case Package::MixedPack: {
-                QListWidget *list = new QListWidget;
-                list->setViewMode(QListView::IconMode);
-                list->setDragDropMode(QListView::NoDragDrop);
-                fillListWidget(list, package);
+        if (package->getType() == Package::GeneralPack) {
+            QListWidget *list = new QListWidget;
+            list->setViewMode(QListView::IconMode);
+            list->setDragDropMode(QListView::NoDragDrop);
+            fillListWidget(list, package);
 
-                tab_widget->addTab(list, Sanguosha->translate(package->objectName()));
-            }
-        default:
-                break;
+            tab_widget->addTab(list, Sanguosha->translate(package->objectName()));
         }
     }
 }
@@ -1103,7 +1108,6 @@ bool ServerDialog::config() {
     Config.setValue("NullificationCountDown", nullification_spinbox->value());
     Config.setValue("EnableMinimizeDialog", Config.EnableMinimizeDialog);
     Config.setValue("EnableAI", Config.EnableAI);
-    Config.setValue("AIChat", ai_chat_checkbox->isChecked());
     Config.setValue("OriginAIDelay", Config.OriginAIDelay);
     Config.setValue("AlterAIDelayAD", ai_delay_altered_checkbox->isChecked());
     Config.setValue("AIDelayAD", Config.AIDelayAD);
@@ -1154,12 +1158,12 @@ Server::Server(QObject *parent)
 
     //synchronize ServerInfo on the server side to avoid ambiguous usage of Config and ServerInfo
     ServerInfo.parse(Sanguosha->getSetupString());
+
+    current = NULL;
     createNewRoom();
 
     connect(server, SIGNAL(new_connection(ClientSocket *)), this, SLOT(processNewConnection(ClientSocket *)));
     connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(deleteLater()));
-
-    current = NULL;
 }
 
 void Server::broadcast(const QString &msg) {
@@ -1232,15 +1236,14 @@ void Server::processRequest(const char *request) {
     if (command == "signupr") {
         foreach (QString objname, name2objname.values(screen_name)) {
             ServerPlayer *player = players.value(objname);
-            if (player && player->getState() == "offline") {
-                Q_ASSERT(player->getRoom());
+            if (player && player->getState() == "offline" && !player->getRoom()->isFinished()) {
                 player->getRoom()->reconnect(player, socket);
                 return;
             }
         }
     }
 
-    if (current == NULL || current->isFull())
+    if (current == NULL || current->isFull() || current->isFinished())
         createNewRoom();
 
     ServerPlayer *player = current->addSocket(socket);
@@ -1267,10 +1270,3 @@ void Server::gameOver() {
         players.remove(player->objectName());
     }
 }
-
-void Server::gamesOver() {
-    name2objname.clear();
-    players.clear();
-    rooms.clear();
-}
-
