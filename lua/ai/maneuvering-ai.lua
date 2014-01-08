@@ -468,7 +468,6 @@ function SmartAI:useCardIronChain(card, use)
 		else
 			table.insert(otherfriends, friend)
 		end
-=======
         if use.current_targets and table.contains(use.current_targets, friend:objectName()) then
             -- continue
         else
@@ -478,7 +477,6 @@ function SmartAI:useCardIronChain(card, use)
                 table.insert(otherfriends, friend)
             end
         end
->>>>>>> upstream/master
 	end
 	if not (liuxie and self:isEnemy(liuxie)) then
 		self:sort(self.enemies, "defense")

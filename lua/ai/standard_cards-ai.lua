@@ -1017,15 +1017,12 @@ end
 
 sgs.ai_card_intention.Peach = function(self, card, from, tos)
 	for _, to in ipairs(tos) do
-<<<<<<< HEAD
 		if to:hasSkill("wuhun") then else sgs.updateIntention(from, to, -120) end
 		sgs.updateIntention(from, to, -120)
-=======
         if to:hasSkill("wuhun") then
         else
             sgs.updateIntention(from, to, -120)
         end
->>>>>>> upstream/master
 	end
 end
 

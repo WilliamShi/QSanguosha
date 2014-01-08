@@ -943,7 +943,6 @@ sgs.ai_skill_use_func.DuwuCard = function(card, use, self)
 	end
 
 	for _, enemy in ipairs(enemies) do
-<<<<<<< HEAD
 		if enemy:getHp() > #card_ids then 
 		else
 
@@ -1470,14 +1469,8 @@ sgs.ai_skill_invoke.cv_huanggai = function(self, data)
 end
 
 sgs.ai_skill_invoke.cv_guojia = sgs.ai_skill_invoke.cv_huanggai
-<<<<<<< HEAD
-=======
 sgs.ai_skill_invoke.cv_zhugeke = sgs.ai_skill_invoke.cv_huanggai
 sgs.ai_skill_invoke.cv_yuejin = sgs.ai_skill_invoke.cv_huanggai
-<<<<<<< HEAD
->>>>>>> upstream/master
-=======
-
 sgs.ai_skill_invoke.cv_zhugejin = function(self, data)
 	return math.random(0, 4) > 1
 end
