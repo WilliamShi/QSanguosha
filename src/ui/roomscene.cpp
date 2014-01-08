@@ -755,6 +755,10 @@ void RoomScene::adjustItems() {
 
     padding -= _m_roomLayout->m_photoRoomPadding;
     m_tablew = displayRegion.width() - _m_infoPlane.width();
+<<<<<<< HEAD
+	//m_tablew = displayRegion.width() - _m_roomLayout->m_infoPlaneWidth;
+=======
+>>>>>>> upstream/master
     m_tableh = displayRegion.height() - dashboard->boundingRect().height();
     QPixmap tableBg = G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_TABLE_BG)
                                  .scaled(m_tablew, m_tableh, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);

@@ -1024,7 +1024,6 @@ sgs.ai_skill_use_func.DuwuCard = function(card, use, self)
                 end
             end
         end
->>>>>>> upstream/master
 	end
 end
 
@@ -1474,4 +1473,3 @@ sgs.ai_skill_invoke.cv_yuejin = sgs.ai_skill_invoke.cv_huanggai
 sgs.ai_skill_invoke.cv_zhugejin = function(self, data)
 	return math.random(0, 4) > 1
 end
->>>>>>> upstream/master
